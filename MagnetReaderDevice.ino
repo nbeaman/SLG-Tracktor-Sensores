@@ -12,9 +12,14 @@ int buttonPin = 15;
 int buttonState = 0;
 int i=0;
 
-int YNormal = -78;
-int ZNormal = 25;
-int XNormal = -6;
+//int XNormal = -6;
+//int YNormal = -78;
+//int ZNormal = 25;
+
+int XNormal = -30;
+int YNormal = -6;
+int ZNormal = 33;
+
 
 SoftwareSerial XBee(16, 17);
 
@@ -65,6 +70,16 @@ void setup(void)
 
   // Set digital filtering
   sensor.setFilter(MLX90393_FILTER_6);
+
+  float ftmp = EEPROM_ReadX();
+  if (ftmp !=255 ) XNormal = ftmp;
+
+  ftmp = EEPROM_ReadY();
+  if (ftmp !=255 ) YNormal = ftmp;
+
+  ftmp = EEPROM_ReadZ();
+  if (ftmp !=255 ) ZNormal = ftmp;
+  
 }
 
 void loop(void) {
@@ -73,7 +88,7 @@ void loop(void) {
   buttonState = digitalRead(buttonPin);
 
   if (buttonState == HIGH) {
-    
+    EEPROM_SaveXYZ(x,y,z);
   }
   
   // get X Y and Z data at once
@@ -83,6 +98,10 @@ void loop(void) {
       Serial.print("Y: "); Serial.print(y, 4); Serial.println(" uT");
       Serial.print("Z: "); Serial.print(z, 4); Serial.println(" uT");
 
+      Serial.print("MX = "); Serial.println(XNormal);
+      Serial.print("MY = "); Serial.println(YNormal);
+      Serial.print("MZ = "); Serial.println(ZNormal);
+      
       //if (z > 39){
       if ( (y < (YNormal - 6)) or (z < (ZNormal -8)) or (z > (ZNormal + 5)) ){
         Serial.println("Magnet close");
@@ -102,4 +121,75 @@ void loop(void) {
 
   delay(500);
  
+}
+
+float EEPROM_ReadX(){
+  byte PN = EEPROM.read(0);
+  byte V = EEPROM.read(1);
+  float f = float(V);
+  if (PN == 0) f = f * -1;
+  return f;
+}
+
+float EEPROM_ReadY(){
+  byte PN = EEPROM.read(2);
+  byte V = EEPROM.read(3);
+  float f = float(V);
+  if (PN == 0) f = f * -1;
+  return f;
+}
+
+float EEPROM_ReadZ(){
+  byte PN = EEPROM.read(4);
+  byte V = EEPROM.read(5);
+  float f = float(V);
+  if (PN == 0) f = f * -1;
+  return f;
+}
+
+byte floatToPositiveByte(float f){
+  if (f <0) f = f * -1;
+  int itemp = (int) round(f);
+  String stemp1 = String(f);
+  int indexofdot = stemp1.indexOf(".");
+  String stemp2 = stemp1.substring(0,indexofdot); 
+  itemp = stemp2.toInt();
+  byte btemp = char(itemp);
+  Serial.print(f); Serial.print("="); Serial.println(btemp);
+  return btemp;
+}
+void EEPROM_SaveXYZ(float x,float y,float z){
+
+    Serial.print("BUTTON PRESSED");
+    for (i=0; i <= 20; i++){
+      digitalWrite(led, HIGH); // Turn the LED on
+      delay(50);
+      digitalWrite(led, LOW); // Turn the LED off
+      delay(50);
+    }
+    delay(2000);
+    
+  if (x < 0){
+    EEPROM.write(0,0);
+  }else {EEPROM.write(0,1);
+  }
+  byte bX = floatToPositiveByte(x);
+  EEPROM.write(1,bX);
+  if (y < 0){
+    EEPROM.write(2,0);
+  }else {EEPROM.write(2,1);
+  }  
+  byte bY = floatToPositiveByte(y);
+  EEPROM.write(3,bY);
+  if (z < 0){
+    EEPROM.write(4,0);
+  }else {EEPROM.write(4,1);
+  }  
+  byte bZ = floatToPositiveByte(z);
+  EEPROM.write(5,bZ);
+  EEPROM.commit();
+
+  XNormal = x;
+  YNormal = y;
+  ZNormal = z;
 }
