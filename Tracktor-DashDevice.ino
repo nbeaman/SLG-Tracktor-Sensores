@@ -12,6 +12,14 @@ SoftwareSerial XBee(16, 17);
 #define MOTION_PIN 36
 int MotionStatus = 0;
 
+//const int button1Pin = 15;
+//const int button2Pin = 39;
+
+//int button1State = 0;
+//int button2State = 0;
+
+boolean BuzzerActive = true;
+
 // How many NeoPixels are attached to the Arduino?
 #define LED_COUNT 12
 
@@ -31,7 +39,7 @@ void setup()
 {
   // Baud rate MUST match XBee settings (as set in XCTU)
   XBee.begin(9600);
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println("HERE");
 
   strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
@@ -42,33 +50,56 @@ void setup()
   digitalWrite(BUZZER_PIN, LOW);  // sets the digital pin BUZZER_PIN off
 
   pinMode(MOTION_PIN, INPUT);
-
+  //digitalWrite(MOTION_PIN, LOW);
+  
   ledcSetup(channel, freq, resolution);
   ledcAttachPin(BUZZER_PIN, channel);  
+
+  //pinMode(button1Pin, INPUT);
+  //pinMode(button2Pin, INPUT);
+      
 }
 
 void loop()
 
-
 {
+
+  /*
+  button1State = digitalRead(button1Pin);
+  button2State = digitalRead(button2Pin);
+
+  if ( button1State == HIGH){
+    Serial.println("Button 1 pressed (15)");
+    BuzzerActive = false;
+  }
+   if ( button2State == HIGH){
+    Serial.println("Button 2 pressed (39)");
+    BuzzerActive = true;
+  }
+  */
+  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
   if (HoseConnected){
       colorWipe(strip.Color(255,   0,   0), 50); // Red
-
+      digitalWrite(MOTION_PIN, HIGH);  // turn LED ON
+      strip.show();
+      
       MotionStatus = digitalRead(MOTION_PIN);
+      
+      if (MotionStatus == HIGH) Serial.println("Motion Detected");
 
       if (MotionStatus == HIGH){
-         digitalWrite(MOTION_PIN, HIGH);  // turn LED ON
-         Serial.println("Motion Detected!");
-         SoundBuzzer();
-       } 
-       else {
-         digitalWrite(MOTION_PIN, LOW); // turn LED OFF if we have no motion
+         Serial.println("Motion Detected");
+         if ((BuzzerActive)) SoundBuzzer();
+      } else {
+         Serial.println("No motion"); 
+         digitalWrite(MOTION_PIN, LOW);
          delay(600);
-       }     
-        
+       } 
       
+      digitalWrite(MOTION_PIN, LOW); // turn LED OFF if we have no motion      
       strip.clear();
       strip.show();
+      
   } else {
       strip.clear();
       strip.show();
@@ -104,9 +135,6 @@ void SoundBuzzer(){
   ledcWriteTone(channel, 2000);
   
   for (int dutyCycle = 0; dutyCycle <= 255; dutyCycle=dutyCycle+10){
-  
-    Serial.println(dutyCycle);
-  
     ledcWrite(channel, dutyCycle);
     delay(19);
   }
@@ -114,9 +142,6 @@ void SoundBuzzer(){
   ledcWrite(channel, 125);
   
   for (int freq = 255; freq < 10000; freq = freq + 250){
-  
-     Serial.println(freq);
-  
      ledcWriteTone(channel, freq);
      delay(5);
   }
