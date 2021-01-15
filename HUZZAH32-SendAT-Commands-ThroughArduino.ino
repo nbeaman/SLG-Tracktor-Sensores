@@ -19,7 +19,7 @@ void loop() {
     Serial.print("Command: *"); Serial.print(command); Serial.println("*");
     XBeeResponded = SendATtoXBee(command);
     command = "";
-    Serial.println(XBeeResponded);
+    //Serial.print("Response:");Serial.println(XBeeResponded);
   }
   
 }
@@ -41,25 +41,37 @@ String SendATtoXBee(String M){
 
   if (M.substring(0,3) == "+++"){
     Serial.println("Triple Pluse");
-    delay(1200);
-    XBee.print("+++");
-    delay(900);
+    //delay(1200);
+    XBee.write("+++");
+    delay(2000);
   } else {
+
     for (int i=0; i < M.length(); i++){
       Serial.print("-");
       Serial.print(M.charAt(i));
       XBee.write(M.charAt(i));
     }
     XBee.write(0x0D);
-  }
-  
-  delay(300);
+    delay(2000);
 
+    /*
+    XBee.write('A');
+    XBee.write('T');
+    XBee.write('N');
+    XBee.write('I');
+    XBee.write(0x0D);
+    delay(2000);
+    */
+  }
+  Serial.println();
+  
   while (XBee.available() > 0) {
     Serial.write(XBee.read());
      bOK = true;
   }
-
+  
+  Serial.println();
+  
   /*
   while (XBee.available() > 0) {
       int din = XBee.read();
@@ -67,7 +79,6 @@ String SendATtoXBee(String M){
       Serial.write(din);   
     }
     
-
   while (XBee.available() > 0) {
     char din = XBee.read();
     delay(200);
