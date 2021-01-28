@@ -16,6 +16,7 @@ int TAPS_EEPROM_LOCATION =  0;
  
 void setup() {
   // put your setup code here, to run once:
+  delay(3000);
   Serial.begin(115200);
 
   //---[ FRAM ]-------------------------------------
