@@ -2,7 +2,7 @@
 #include "SoftwareSerial.h"  // LOOK FOR ESP32 SERIAL IN ARDUINO COMMON LIBRARIES
 #include <Adafruit_NeoPixel.h>
 
-SoftwareSerial XBee(7, 6);    // XIAO
+SoftwareSerial XBee(7, 6);
 
 #define LED_PIN         5
 #define VIBRATION_PIN   2
@@ -17,6 +17,8 @@ int VibrationValue      = 0;
 int MotionStatus        = 0;
 boolean ShowTankLevel   = true;
 boolean G_BuzzerOn        = true;
+String G_XBeeData = "";
+char c;
 
 // Declare our NeoPixel strip object:
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -41,7 +43,8 @@ void setup()
   strip.show();
   
   // Baud rate MUST match XBee settings (as set in XCTU)
-
+  XBee.begin(9600);
+  
   delay(3000);    // TEST TO SEE IF THIS HELPS UPLOADING FILES TO XIAO!!!!!!!!
   if(DBUG) Serial.begin(115200);
   
@@ -49,37 +52,86 @@ void setup()
 
   pinMode(BUZZER_PIN, OUTPUT); // set the buzzer as output mode
   pinMode(BUTTON_PIN, INPUT_PULLUP);
-  
-  XBee.begin(9600);
-
-
-      
+    
 }
+
 
 void loop()
 
 {
 
-  ShowTankLevel = checkButton_ShowTankLevel(ShowTankLevel);
+  if (!G_HoseConnected) ShowTankLevel = checkButton_ShowTankLevel(ShowTankLevel);
+
+  if (XBee.available()){                // True only if there is data ready to read on XBee
+    
+    while(XBee.available()){
+      c = XBee.read();
+      delay(50);
+      G_XBeeData = G_XBeeData + String(c);     
+    }
+
+  } else {
+
+    // Look at XBee's last trasmission
+    
+    if (G_XBeeData != ""){
+
+        if(DBUG) Serial.println("Payload:" + G_XBeeData);
+        String XBeeIN_TYPE = G_XBeeData.substring( 0, 1 );
+        if(DBUG) Serial.println("Type:" + XBeeIN_TYPE);
+        String XBeeIN_DATA = G_XBeeData.substring( 1, (G_XBeeData.length()-1) );
+
+        if (XBeeIN_TYPE == "H"){
+           if (XBeeIN_DATA.substring(0,1) == "H") G_HoseConnected = true;
+           if (XBeeIN_DATA.substring(0,1) == "L") G_HoseConnected = false;
+        } else {
+           if (XBeeIN_TYPE == "T") TankWaterLevel = XBeeIN_DATA.toFloat();
+        }       
+    }
+
+    G_XBeeData = "";
+ 
+  }
+
+
+
+ /* 
 
    // ====================[ Read incomming data on XBee ]===========
    if (XBee.available()){
-     String XBeeIN      = getXBeePayload();
-     if(DBUG) Serial.println("Payload:" + XBeeIN);
-     String XBeeIN_TYPE = XBeeIN.substring( 0, 1 );
-     if(DBUG) Serial.println("Type:" + XBeeIN_TYPE);
-     String XBeeIN_DATA = XBeeIN.substring( 1, (XBeeIN.length()-1) );
-     if(DBUG) Serial.println("Data:" + XBeeIN_DATA);
+       //String XBeeIN      = getXBeePayload();
+       c = XBee.read();
        
-     if (XBeeIN_TYPE == "H"){
-        if (XBeeIN_DATA.substring(0,1) == "H") G_HoseConnected = true;
-        if (XBeeIN_DATA.substring(0,1) == "L") G_HoseConnected = false;
-     }
-     if (XBeeIN_TYPE == "T") TankWaterLevel = XBeeIN_DATA.toFloat();
-   }
-   //===============================================================
+       if ((c == 'H') or (c == 'T')){
+           G_XBeeData = "";
+           
+           while (c != char(0x0D)){
+              c = XBee.read();
+              G_XBeeData = G_XBeeData + String(c);
+              Serial.print(String(c)); Serial.println("*");     
+           }
+           Serial.println();  
 
-   ShowTankLevel = checkButton_ShowTankLevel(ShowTankLevel);
+           if(DBUG) Serial.println("Payload:" + G_XBeeData);
+           String XBeeIN_TYPE = G_XBeeData.substring( 0, 1 );
+           if(DBUG) Serial.println("Type:" + XBeeIN_TYPE);
+           String XBeeIN_DATA = G_XBeeData.substring( 1, (G_XBeeData.length()-1) );
+           if(DBUG) Serial.println("Data:" + XBeeIN_DATA);
+             
+           if (XBeeIN_TYPE == "H"){
+              if (XBeeIN_DATA.substring(0,1) == "H") G_HoseConnected = true;
+              if (XBeeIN_DATA.substring(0,1) == "L") G_HoseConnected = false;
+           } else {
+              if (XBeeIN_TYPE == "T") TankWaterLevel = XBeeIN_DATA.toFloat();
+           }
+                      
+       }
+   }
+  */   
+
+   //================================================================
+
+   if (!G_HoseConnected) ShowTankLevel = checkButton_ShowTankLevel(ShowTankLevel);
     
    if (G_HoseConnected){  
       Serial.println("Hose Connected:" + String(G_HoseConnected));
@@ -98,10 +150,18 @@ void loop()
       }
                  
       clearLEDs(G_BuzzerOn, ShowTankLevel, G_HoseConnected);
-   } else {
+   }
 
-      if (ShowTankLevel) ShowTankWaterLevel(TankWaterLevel);
-   } 
+   //flushXBee();
+   
+}
+
+void flushXBee(){
+    char f;
+    while(XBee.available()){
+      f = XBee.read();    
+      Serial.print("." + String(f));
+    }  
 }
 
 String getXBeePayload(){
@@ -112,13 +172,16 @@ String getXBeePayload(){
   boolean done = false;
 
   while (!done){
-      if (XBee.available()){
-        c = XBee.read();
-        delay(30);
-        strRETURN = strRETURN + String(c);
-        if(DBUG) if (c == char(0x0D) ) Serial.println("Found CR");
-      }      
-      if ( (c == char(0x0D) ) or ( i > 25 )) done=true; 
+
+      c = XBee.read();
+      Serial.print(String(c));Serial.print("*");
+      strRETURN = strRETURN + String(c);
+      if(DBUG) if (c == char(0x0D) ) Serial.println("Found CR");
+    
+      if ( (c == char(0x0D) ) or ( i > 25 )) {
+        done=true; 
+        Serial.println("Found CR in getXBeepayload");
+      }
       i=i+1;      
   }         
 
@@ -213,6 +276,8 @@ void showHoseConnectedAlertLEDs(uint32_t color, int wait, boolean buzzer_on) {
     strip.show();                          //  Update strip to match
     delay(wait);                           //  Pause for a moment
   }
+  strip.clear();
+  strip.show();
 }
 
 void clearLEDs(boolean buzzer_on, boolean show_tank_level, boolean hose_connected){
@@ -231,18 +296,6 @@ void BuzzerSound(){
      delay(.01 * x); //rythem of the music,it can be tuned fast and slow by change the number"400"
      noTone(BUZZER_PIN);//stop the current note and go to the next note
     } 
-}
-
-float GetTankWaterLevel(){
-  String s = "";
-  s = char(XBee.read());
-  s = s + char(XBee.read());
-  s = s + char(XBee.read());
-  s = s + char(XBee.read());
-  s = s + char(XBee.read());
-  s = s + char(XBee.read());
-  if(DBUG) Serial.println(TankWaterLevel);
-  return float(TankWaterLevel);
 }
 
 void UpdateDisplay(float l){
