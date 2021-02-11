@@ -16,13 +16,12 @@ int VibrationThreshold  = 25;
 int VibrationValue      = 0;
 int MotionStatus        = 0;
 boolean ShowTankLevel   = true;
-boolean G_BuzzerOn        = true;
+boolean G_BuzzerOn      = true;
 String G_XBeeData = "";
 char c;
 
 // Declare our NeoPixel strip object:
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
-
 
 boolean G_HoseConnected = false;
 
@@ -63,8 +62,9 @@ void loop()
   if (!G_HoseConnected) ShowTankLevel = checkButton_ShowTankLevel(ShowTankLevel);
 
   if (XBee.available()){                // True only if there is data ready to read on XBee
-    
+
     while(XBee.available()){
+    //while(c != char(0x0d)){
       c = XBee.read();
       delay(50);
       G_XBeeData = G_XBeeData + String(c);     
@@ -75,12 +75,20 @@ void loop()
     // Look at XBee's last trasmission
     
     if (G_XBeeData != ""){
-
         if(DBUG) Serial.println("Payload:" + G_XBeeData);
+
+        // received both 'H' and 'T' values in one reading - strip off 'T' and it's value
+        // occassionally we will get Payload:T14.76HL-4.61HL-4.12T14.76
+
+
+        Serial.println("**" + String((G_XBeeData.indexOf('H')!=-1) and (G_XBeeData.indexOf('T')!=-1)));
+        if((G_XBeeData.indexOf('H')!=-1) and (G_XBeeData.indexOf('T')!=-1)) G_XBeeData = hoseConnectValueOnly(G_XBeeData); 
+                                                                                    
         String XBeeIN_TYPE = G_XBeeData.substring( 0, 1 );
         if(DBUG) Serial.println("Type:" + XBeeIN_TYPE);
         String XBeeIN_DATA = G_XBeeData.substring( 1, (G_XBeeData.length()-1) );
-
+        if(DBUG) Serial.println("DATA:" + XBeeIN_DATA);
+        
         if (XBeeIN_TYPE == "H"){
            if (XBeeIN_DATA.substring(0,1) == "H") G_HoseConnected = true;
            if (XBeeIN_DATA.substring(0,1) == "L") G_HoseConnected = false;
@@ -94,40 +102,6 @@ void loop()
   }
 
 
-
- /* 
-
-   // ====================[ Read incomming data on XBee ]===========
-   if (XBee.available()){
-       //String XBeeIN      = getXBeePayload();
-       c = XBee.read();
-       
-       if ((c == 'H') or (c == 'T')){
-           G_XBeeData = "";
-           
-           while (c != char(0x0D)){
-              c = XBee.read();
-              G_XBeeData = G_XBeeData + String(c);
-              Serial.print(String(c)); Serial.println("*");     
-           }
-           Serial.println();  
-
-           if(DBUG) Serial.println("Payload:" + G_XBeeData);
-           String XBeeIN_TYPE = G_XBeeData.substring( 0, 1 );
-           if(DBUG) Serial.println("Type:" + XBeeIN_TYPE);
-           String XBeeIN_DATA = G_XBeeData.substring( 1, (G_XBeeData.length()-1) );
-           if(DBUG) Serial.println("Data:" + XBeeIN_DATA);
-             
-           if (XBeeIN_TYPE == "H"){
-              if (XBeeIN_DATA.substring(0,1) == "H") G_HoseConnected = true;
-              if (XBeeIN_DATA.substring(0,1) == "L") G_HoseConnected = false;
-           } else {
-              if (XBeeIN_TYPE == "T") TankWaterLevel = XBeeIN_DATA.toFloat();
-           }
-                      
-       }
-   }
-  */   
 
    //================================================================
 
@@ -154,6 +128,29 @@ void loop()
 
    //flushXBee();
    
+}
+
+String hoseConnectValueOnly(String strV){ // payload either looks like T14.76HL-4.61 or HL-4.61T14.76 , return only the 'H' data
+  
+  int stop_index =0;
+
+  int H_index = strV.indexOf("H");
+  String strTemp = strV.substring(H_index, strV.length());
+  //Serial.println("HERE:" + strTemp);
+
+  for(int i=1; i<strTemp.length(); i++){
+    if(strTemp[i]=='T' or strTemp[i]=='H' or strTemp[i]==char(0x0D)){
+      stop_index=i;
+      i=strTemp.length();
+    }
+  }
+  //Serial.println(String(stop_index));
+  if(stop_index==0) stop_index = strTemp.length();
+
+  //Serial.println(String(H_index) + "," + String(stop_index));
+  strTemp = strTemp.substring(0,stop_index);
+
+  return strTemp;
 }
 
 void flushXBee(){
