@@ -1,6 +1,7 @@
 /* Output-side (LED) Arduino code */
 #include "SoftwareSerial.h"  // LOOK FOR ESP32 SERIAL IN ARDUINO COMMON LIBRARIES
 #include <Adafruit_NeoPixel.h>
+#include <math.h>
 
 SoftwareSerial XBee(7, 6);
 
@@ -26,8 +27,10 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 boolean G_HoseConnected = false;
 
 float TankWaterLevel        = 0;
-float TankWaterLevel_EMPTY  = 17.46;
-float TankWaterLevel_FULL   = 18.56;
+float TankWaterLevel_EMPTY  = 14.70;
+float TankWaterLevel_FULL   = 15.80;
+int   TankWaterLevel_LEDs   = 6;
+float TankWaterLevel_LED_INC  = ( TankWaterLevel_FULL / TankWaterLevel_EMPTY ) / TankWaterLevel_LEDs;       //i.e. 0.183
 float LED_Status_Previouse  = 0;
 
 //=========================================
@@ -94,6 +97,7 @@ void loop()
            if (XBeeIN_DATA.substring(0,1) == "L") G_HoseConnected = false;
         } else {
            if (XBeeIN_TYPE == "T") TankWaterLevel = XBeeIN_DATA.toFloat();
+            if(ShowTankLevel) UpdateTankLevelLEDS(TankWaterLevel, TankWaterLevel_EMPTY, TankWaterLevel_FULL, TankWaterLevel_LED_INC);
         }       
     }
 
@@ -125,8 +129,6 @@ void loop()
                  
       clearLEDs(G_BuzzerOn, ShowTankLevel, G_HoseConnected);
    }
-
-   //flushXBee();
    
 }
 
@@ -140,8 +142,8 @@ String hoseConnectValueOnly(String strV){ // payload either looks like T14.76HL-
 
   for(int i=1; i<strTemp.length(); i++){
     if(strTemp[i]=='T' or strTemp[i]=='H' or strTemp[i]==char(0x0D)){
-      stop_index=i;
-      i=strTemp.length();
+      stop_index=i;               // end index of H value data
+      i=strTemp.length();         // stop the for loop
     }
   }
   //Serial.println(String(stop_index));
@@ -151,14 +153,6 @@ String hoseConnectValueOnly(String strV){ // payload either looks like T14.76HL-
   strTemp = strTemp.substring(0,stop_index);
 
   return strTemp;
-}
-
-void flushXBee(){
-    char f;
-    while(XBee.available()){
-      f = XBee.read();    
-      Serial.print("." + String(f));
-    }  
 }
 
 String getXBeePayload(){
@@ -250,17 +244,7 @@ void LED_AcceptButtonPressed(){
     strip.clear();
     strip.show();  
 }
-void ShowTankWaterLevel(float wlvalue){
-      
-      // Code to show level based on wlvalue, if 0 show nothing
 
-      strip.setPixelColor(0, strip.Color(0,   0,   0) );
-      strip.setPixelColor(1, strip.Color(0,   0,   255) );
-      strip.setPixelColor(2, strip.Color(0,   0,   255) );
-      strip.setPixelColor(3, strip.Color(0,   0,   255) );
-      strip.setPixelColor(4, strip.Color(0,   0,   255) ); 
-      strip.show(); 
-}
 void showHoseConnectedAlertLEDs(uint32_t color, int wait, boolean buzzer_on) {
   Serial.println("Showing Red Alert LEDs");
   if (buzzer_on){
@@ -295,21 +279,61 @@ void BuzzerSound(){
     } 
 }
 
-void UpdateDisplay(float l){
+ 
+void UpdateTankLevelLEDS(float CurrentLevelVal, float emptyVal, float fullVal, float ledIncs){
 
-  float LED_ChangeStatus_Every_Value = (TankWaterLevel_FULL - TankWaterLevel_EMPTY) / 7;
-  
   strip.clear();
   strip.show();
+  
 
-  //if (LED_Status_Previouse == 0) LED_Status_Previouse = l;                              // Device was just turned on
+  float floatVal = ((CurrentLevelVal - emptyVal) /ledIncs ) + 1;                          // +1 b/c when value goes below zero 0/0.183 we still need to light the first LED
+                                                                                                // and top value needs to be 6.* somthing
+  int LEDsToLight = leftFloat(floatVal);
+  if(LEDsToLight>6){
+    LEDsToLight=6;            // can't light more than 6 LED's
+    floatVal = 5.99;          // .99 to make vColorVal come out to 255
+  } 
+  if(LEDsToLight<=0){
+    LEDsToLight=1;
+    floatVal = 1.0;
+  }
+  
+  for(int i=1; i <= LEDsToLight; i++){
+    strip.setPixelColor(i, strip.Color(0,   0,   255) );
+  }
+  
+  Serial.println("LEDsToLight: " + String(LEDsToLight) + "(" + String((CurrentLevelVal - emptyVal) /ledIncs) + ") ledIncs: " + String(ledIncs));
 
-  //if ( (TankWaterLevel_EMPTY + l) / NumberOfLedsTolight ) > LED_Status_Previouse ) NumberOfLedsTolight = NumberOfLedsTolight + 1;
-  
-  //if (TankWaterLevel_EMPTY + (LED_ChangeStatus_Every_Value*2);
-  
-  //int NumberOfLEDsToLight =                                                 // Must calculate a number from 0 to 6;
-  
-  
-  
-}
+  // last LED color
+  float fDec = getDecimalsFloat(floatVal);
+
+  Serial.println("xtofloat:" + String(fDec));
+  fDec = fDec / ledIncs;
+  fDec = fDec * 46.36364;
+  int vColorVal = String(fDec).toInt();
+  if(vColorVal >= 256) vColorVal=255;
+  Serial.println("vColorVal: " + String(vColorVal)); 
+
+  if(LEDsToLight == 1){
+    strip.setPixelColor(LEDsToLight, strip.Color(255-vColorVal,   0,   vColorVal) );
+  }else{
+    strip.setPixelColor(LEDsToLight, strip.Color(0,   0,   vColorVal) ); 
+  } 
+
+  strip.show();
+    
+ }
+
+  int leftFloat(float x){
+    String xstr = String(x);
+    int indxDOT = xstr.indexOf(".");
+    xstr = xstr.substring(0,indxDOT);
+    return xstr.toInt();
+  }
+
+  float getDecimalsFloat(float x){
+    String xstr = String(x);
+    int indxDOT = xstr.indexOf(".");
+    xstr = xstr.substring(indxDOT,xstr.length());
+    return xstr.toFloat();
+  }
