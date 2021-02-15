@@ -18,6 +18,7 @@ int VibrationValue      = 0;
 int MotionStatus        = 0;
 boolean ShowTankLevel   = true;
 boolean G_BuzzerOn      = true;
+
 String G_XBeeData = "";
 char c;
 
@@ -29,8 +30,8 @@ boolean G_HoseConnected = false;
 float TankWaterLevel        = 0;
 float TankWaterLevel_EMPTY  = 14.70;
 float TankWaterLevel_FULL   = 15.80;
-int   TankWaterLevel_LEDs   = 6;
-float TankWaterLevel_LED_INC  = ( TankWaterLevel_FULL / TankWaterLevel_EMPTY ) / TankWaterLevel_LEDs;       //i.e. 0.183
+int   TankWaterLevel_NumberOfLEDs   = 6;
+float TankWaterLevel_LED_INC  = ( TankWaterLevel_FULL / TankWaterLevel_EMPTY ) / TankWaterLevel_NumberOfLEDs;       //i.e. 0.183
 float LED_Status_Previouse  = 0;
 
 //=========================================
@@ -122,7 +123,8 @@ void loop()
       
       if (VibrationValue > VibrationThreshold) {
         if(DBUG) Serial.println("Motion Detected");
-        if (G_BuzzerOn) BuzzerSound();
+        //if (G_BuzzerOn) BuzzerSound();
+        BuzzerSound();
       } else {
         delay(600);
       }
@@ -270,7 +272,7 @@ void clearLEDs(boolean buzzer_on, boolean show_tank_level, boolean hose_connecte
 }
 
 void BuzzerSound(){
-  
+    Serial.println("**************BUZZZZZZZZZZZZ*****");
     for (int x = 1100; x < 2700; x=x+30) //"sing" the note one by one
     {
      tone(BUZZER_PIN, x); //output the "x" note
@@ -289,9 +291,9 @@ void UpdateTankLevelLEDS(float CurrentLevelVal, float emptyVal, float fullVal, f
   float floatVal = ((CurrentLevelVal - emptyVal) /ledIncs ) + 1;                          // +1 b/c when value goes below zero 0/0.183 we still need to light the first LED
                                                                                                 // and top value needs to be 6.* somthing
   int LEDsToLight = leftFloat(floatVal);
-  if(LEDsToLight>6){
-    LEDsToLight=6;            // can't light more than 6 LED's
-    floatVal = 5.99;          // .99 to make vColorVal come out to 255
+  if( LEDsToLight > TankWaterLevel_NumberOfLEDs ){
+    LEDsToLight=TankWaterLevel_NumberOfLEDs;                // i.e. can't light more than 6 LED's
+    floatVal = TankWaterLevel_NumberOfLEDs - 0.01;          // .99 to make vColorVal come out to 255 i.e 5.99
   } 
   if(LEDsToLight<=0){
     LEDsToLight=1;
@@ -305,19 +307,20 @@ void UpdateTankLevelLEDS(float CurrentLevelVal, float emptyVal, float fullVal, f
   Serial.println("LEDsToLight: " + String(LEDsToLight) + "(" + String((CurrentLevelVal - emptyVal) /ledIncs) + ") ledIncs: " + String(ledIncs));
 
   // last LED color
-  float fDec = getDecimalsFloat(floatVal);
+  float fDec = getDecimalsFloat(floatVal);            // Get the value after the period in the float value i.e. 3.73 will return 0.73
 
+  // The color of the LED light is a value from 0 to 255. Using the the value after the period we calculate this value using 0.0 (0) to 0.99 (255)
   Serial.println("xtofloat:" + String(fDec));
-  fDec = fDec / ledIncs;
-  fDec = fDec * 46.36364;
-  int vColorVal = String(fDec).toInt();
-  if(vColorVal >= 256) vColorVal=255;
+  fDec = fDec / ledIncs;                              // with the 0.?? value, how many ledIncs go in to that i.e. .99 / 0.18 = x
+  fDec = fDec * 46.36364;                             // above x * 46.36364 = ~255.32
+  int vColorVal = String(fDec).toInt();               // make it an integer (255)
+  if(vColorVal >= 256) vColorVal=255;                 // at the top level .93 to .99 the value may exceed 256 - f so stop it at 255
   Serial.println("vColorVal: " + String(vColorVal)); 
 
-  if(LEDsToLight == 1){
+  if(LEDsToLight == 1){                                                                 // Start turning the LED red if it is showing the tank is almost empty
     strip.setPixelColor(LEDsToLight, strip.Color(255-vColorVal,   0,   vColorVal) );
   }else{
-    strip.setPixelColor(LEDsToLight, strip.Color(0,   0,   vColorVal) ); 
+    strip.setPixelColor(LEDsToLight, strip.Color(0,   0,   vColorVal) );                // Blue LED will start to fade as it will eventually go to a lower LED 
   } 
 
   strip.show();
