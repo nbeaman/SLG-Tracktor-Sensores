@@ -7,6 +7,10 @@
 
 SoftwareSerial XBee(16, 17);    // HUZZAN32
 
+//=========================================
+int DBUG = 1;
+//=========================================
+
 Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
 
 // OLED FeatherWing buttons map to different pins depending on board:
@@ -36,9 +40,17 @@ Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
   #define BUTTON_C  5
 #endif
 
-void setup() {
-  Serial.begin(115200);
+String G_XBeeData           = "";
+String G_MagnetReading      = "";
+String G_MicPressureReading = "";
+String G_DISPLAY            = "";
+char c;
 
+void setup() {
+  delay(3000);
+  Serial.begin(115200);
+  delay(3000);
+  
   XBee.begin(9600);
   
   Serial.println("OLED FeatherWing test");
@@ -75,82 +87,83 @@ void loop() {
   display.display();
   */
 
+  if (XBee.available()){                // True only if there is data ready to read on XBee
     
+    while(XBee.available()){
+      c = XBee.read();
+      Serial.print(c);Serial.print("-");
+      delay(10);
+      G_XBeeData = G_XBeeData + String(c);     
+    }
+
+  } else {
+
+    // Look at XBee's last trasmission
     
-   if (XBee.available()){
-    
-      
-      
-      String XBeeIN      = getXBeePayload();
-      XBeeIN = ReturnHoseMagnetValue(XBeeIN);
-      
-      
-      display.clearDisplay();
-      display.setCursor(0,0);
-      Serial.println(XBeeIN);
-      display.print(XBeeIN);
-      
-      display.display();
+    if (G_XBeeData != ""){
 
-      yield();
-      //delay(300);
-      //flushXBee();
-   }
+        if(DBUG) Serial.println("Payload:" + G_XBeeData);
 
-   
+        if((G_XBeeData.indexOf('H')!=-1) and (G_XBeeData.indexOf('T')!=-1)) G_XBeeData = hoseConnectValueOnly(G_XBeeData);
+        
+        String XBeeIN_TYPE = G_XBeeData.substring( 0, 1 );
+        if(DBUG) Serial.println("Type:" + XBeeIN_TYPE);
+        String XBeeIN_DATA = G_XBeeData.substring( 1, (G_XBeeData.length()-1) );
+        if(DBUG) Serial.println("DATA:" + XBeeIN_DATA);
 
-}
+        if (XBeeIN_TYPE == "H"){
+            G_MagnetReading       = G_XBeeData;
+        } else {
+            G_MicPressureReading  = G_XBeeData;
+        } 
 
-void flushXBee(){
-  
-  boolean done = false;
-  char c;
-  
-  while (!done){
-      if (XBee.available()){
 
-        c = XBee.read();
-        delay(30);
-        Serial.print(String(c));
-   
-      }else{
-        done=true;      
-      }   
-  }    
-  
-}
+        G_DISPLAY = G_MagnetReading;
+        
+        for (int i=1; i< (12 - G_MagnetReading.length()); i++){
+          G_DISPLAY = G_DISPLAY + " ";
+        }
+        
+        G_DISPLAY = G_DISPLAY + G_MicPressureReading;
+        Serial.println("G_DISPLAY: " + G_DISPLAY);
+        
+        display.clearDisplay();
+        display.setCursor(0,0);
+        Serial.println(G_DISPLAY);
+        display.print(G_DISPLAY);  
+        display.display(); 
+        yield();
+                  
+    }
+            
+    G_DISPLAY = "";
+    G_XBeeData = "";
 
-String ReturnHoseMagnetValue(String s){
-
-  boolean HLorHHfound = false;
-  String sreturn = "";
-  
-  for (int i = 0; i < s.length(); i++){
-    if(s[i] == 'H' and (s[i+1]=='L' or s[i+1]=='H')) HLorHHfound = true;
-    if (HLorHHfound) sreturn = sreturn + s[i];
+    //delay(300);
   }
-  return sreturn;
+
 }
 
 
-String getXBeePayload(){
-
-  String strRETURN = "";
-  int i = 1;
-  char c;
-  boolean done = false;
-
-  while (!done){
-      if (XBee.available()){
-        c = XBee.read();
-        delay(30);
-        strRETURN = strRETURN + String(c);
-   
-      }      
-      if ( (c == char(0x0D) ) or ( i > 25 )) done=true; 
-      i=i+1;      
-  }         
-
-  return strRETURN;
+String hoseConnectValueOnly(String strV){ // payload either looks like T14.76HL-4.61 or HL-4.61T14.76 , return only the 'H' data
   
+  int stop_index =0;
+
+  int H_index = strV.indexOf("H");
+  String strTemp = strV.substring(H_index, strV.length());
+  //Serial.println("HERE:" + strTemp);
+
+  for(int i=1; i<strTemp.length(); i++){
+    if(strTemp[i]=='T' or strTemp[i]=='H' or strTemp[i]==char(0x0D)){
+      stop_index=i;               // end index of H value data
+      i=strTemp.length();         // stop the for loop
+    }
+  }
+  //Serial.println(String(stop_index));
+  if(stop_index==0) stop_index = strTemp.length();
+
+  //Serial.println(String(H_index) + "," + String(stop_index));
+  strTemp = strTemp.substring(0,stop_index);
+
+  return strTemp;
 }
