@@ -46,6 +46,9 @@ String G_MicPressureReading = "";
 String G_DISPLAY            = "";
 char c;
 
+unsigned long msec_lastMagnetReading;
+unsigned long msec_lastPSIReading;
+
 void setup() {
   delay(3000);
   Serial.begin(115200);
@@ -113,10 +116,14 @@ void loop() {
 
         if (XBeeIN_TYPE == "H"){
             G_MagnetReading       = G_XBeeData;
+            msec_lastPSIReading = millis();
         } else {
             G_MicPressureReading  = G_XBeeData;
+            msec_lastMagnetReading = millis();
         } 
 
+        if(( millis() - msec_lastMagnetReading) > 20000 ) G_MicPressureReading = "?";      //if no reading from magnetometer after 20 seconds, blank value
+        if(( millis() - msec_lastPSIReading) > 20000 ) G_MagnetReading = "?";              //if no reading from micropressure after 20 seconds, blank value
 
         G_DISPLAY = G_MagnetReading;
         
