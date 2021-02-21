@@ -1,0 +1,10 @@
+Partlist exported from C:/Users/Nelson/Documents/EAGLE/projects/TracktorSensors/MagnetometerBoard-XIAO-1.0.sch at 2/19/2021 6:39 PM
+
+Qty Value  Device                          Package                  Parts               Description                                                                                                     PROD_ID     SF_SKU    VALUE
+1          CONN_041X04_NO_SILK_NO_POP      1X04_NO_SILK             MAGT                Multi connection point. Often used as Generic Header-pin footprint for 0.1 inch spaced/style header connections                            
+2          CONN_07                         1X07                     XIAO-1-7, XIAO-8-14 Multi connection point. Often used as Generic Header-pin footprint for 0.1 inch spaced/style header connections                            
+1          CONN_08"                        1X08                     FRAM                Multi connection point. Often used as Generic Header-pin footprint for 0.1 inch spaced/style header connections CONN-08438                 
+1          LED3MM                          LED3MM                   LED1                LED                                                                                                                                        
+2   10     10OHM-HORIZ-1/4W-1%             AXIAL-0.3                R1, R4              10Ω resistor                                                                                                    RES-12180             10   
+1   BUTTON MOMENTARY-SWITCH-SPST-PTH-6.0MM TACTILE_SWITCH_PTH_6.0MM S1                  Momentary Switch (Pushbutton) - SPST                                                                             SWCH-08441 COM-00097      
+1   XBEE   XBEE                            XBEE                     XBEES2C                                                                                                                                                        

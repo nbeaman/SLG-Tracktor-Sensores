@@ -1,0 +1,24 @@
+{
+    "Header": {
+        "Comment": "All values are metric (mm)",
+        "CreationDate": "2021-02-19T23:39:31Z",
+        "GenerationSoftware": {
+            "Application": "EAGLE",
+            "Vendor": "Autodesk",
+            "Version": "9.6.2"
+        },
+        "Part": "Single"
+    },
+    "Overall": {
+        "BoardThickness": 1.57,
+        "LayerNumber": 2,
+        "Name": {
+            "ProjectId": "MagnetometerBoard-XIAO-1.0"
+        },
+        "Owner": "Nelson Beaman <nbeaman@fau.edu>",
+        "Size": {
+            "X": 33.96,
+            "Y": 81.27
+        }
+    }
+}
